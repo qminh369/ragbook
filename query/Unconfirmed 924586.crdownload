@@ -1,0 +1,270 @@
+{
+ "cells": [
+  {
+   "cell_type": "code",
+   "execution_count": 1,
+   "id": "b6324e86-7081-4f26-89a2-06e36a848904",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import fitz  # PyMuPDF\n",
+    "import re\n",
+    "import pandas as pd\n",
+    "from langchain.text_splitter import CharacterTextSplitter, RecursiveCharacterTextSplitter\n",
+    "from langchain_community.document_loaders import PyPDFLoader\n",
+    "from langchain_community.vectorstores import Chroma\n",
+    "from langchain_community.embeddings.sentence_transformer import (\n",
+    "    SentenceTransformerEmbeddings,\n",
+    ")\n",
+    "import os\n",
+    "from collections import Counter\n",
+    "from sentence_transformers import SentenceTransformer, models"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 2,
+   "id": "9e881053-a425-4ba6-b40f-0056ae5eca00",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Salesforce/SFR-Embedding-Mistral\n",
+    "# BAAI/bge-m3\n",
+    "#embedding_function = SentenceTransformerEmbeddings(model_name=\"all-MiniLM-L6-v2\")\n",
+    "#embedding_function = SentenceTransformerEmbeddings(model_name=\"BAAI/bge-m3\")\n",
+    "embedding_function = SentenceTransformerEmbeddings(model_name=\"all-MiniLM-L6-v2\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 31,
+   "id": "85783f30-e4c7-4453-bbf7-233c29656729",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# query\n",
+    "# Loạn thế anh hùng \n",
+    "#query = \"\"\"Tác phẩm \"Loạn Thế Anh Hùng\" diễn ra trong bối cảnh lịch sử nào, và bối cảnh này ảnh hưởng như thế nào đến các nhân vật chính của tác phẩm?\"\"\" # top 1,2,3,4 (vote top 1)\n",
+    "#query = \"Nhân vật Thẩm Phóng trong tác phẩm có đặc điểm tính cách và vai trò gì trong câu chuyện?\" # x (vote false)\n",
+    "#query = \"Mối quan hệ giữa Thẩm Phóng và Tam Nương Tử được miêu tả như thế nào trong tác phẩm?\" # (vote top 1)\n",
+    "#query = \"Nhân vật Thẩm Phóng và Tam Nương Tử xuất hiện trong hoàn cảnh nào và họ đang trốn tránh điều gì?\" #x (vote false)\n",
+    "#query = \"Đoạn hội thoại giữa Thẩm Phóng và Tam Nương Tử trong tửu quán tiết lộ điều gì về quan điểm và tâm trạng của họ đối với tình hình chính trị và xã hội thời bấy giờ?\" #x (vote false)\n",
+    "query = \"\"\"Có những chi tiết nào trong chương này gợi lên không khí và tâm trạng của \"loạn thế\" mà tác phẩm đề cập?\"\"\" # top 1,2,3,4 (vote top 1)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 32,
+   "id": "0a1ef7e0-d6ad-4857-8667-3a286f3fa58c",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# query\n",
+    "# Những chàng trai huyển thoại\n",
+    "#query = \"Benjamin Franklin, nhân vật chính của cuốn sách, đã gặp những khó khăn gì trong thời niên thiếu và làm thế nào để vượt qua chúng?\" #x (vote false)\n",
+    "#query = \"Tác giả đã truyền tải thông điệp gì về tầm quan trọng của sự tự lập và làm việc chăm chỉ thông qua cuộc đời của Benjamin Franklin?\" # top 1,2,3,4 (vote top 1)\n",
+    "#query = \"Cuốn sách đã miêu tả như thế nào về các nguyên tắc và triết lý sống mà Franklin tuân theo?\" # top 2,3 (vote top 1)\n",
+    "#query = \"Làm thế nào mà Franklin đã đóng góp vào sự phát triển của nước Mỹ, cả về mặt xã hội và chính trị?\" #x (vote false)\n",
+    "#query = \"Tác phẩm này muốn gửi gắm thông điệp gì đến độc giả, đặc biệt là giới trẻ, về cách thức xây dựng một cuộc sống hạnh phúc và thành công?\" # top 3 (vote top 4)\n",
+    "#query = \"Trong khoảng thời gian từ 10 đến 12 tuổi, Benjamin Franklin đã tham gia vào những công việc gì để giúp đỡ gia đình mình?\" # x (vote top 3)\n",
+    "#query = \"Tại sao Franklin không thích công việc làm nến và muốn trở thành thủy thủ để khám phá thế giới?\" #x (vote top 3)\n",
+    "#query = \"Cha của Franklin đã dẫn cậu tham gia vào những loại công việc nào khác để tìm kiếm sự phù hợp với khả năng và mong muốn của cậu?\" #x (vote false)\n",
+    "#query = \"Franklin đã học được những kỹ năng gì từ việc thử nghiệm các nghề nghiệp khác nhau theo sự dẫn dắt của cha mình?\" #x (vote top 2)\n",
+    "#query = \"Lý do nào khiến cha của Franklin quyết định không đưa cậu vào học việc tại cửa hàng dao kéo, dù đã có ý định ban đầu?\" # top 4 (vote top 1)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 33,
+   "id": "4867b20f-abd9-4871-a1d8-f0b4680f1b52",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "[Document(page_content='vừa bùn vừa nước, cực kỳ bẩn thỉu, lưng chỉ có một bướu, mềm rũ\\nxuống, cũng chẳng biết đã bao lâu không được ăn no, trên người\\ncũng hoàn toàn không thấy yên cương. Con vật khá cao, bốn chân\\ngầy chắc, càng làm nổi bật bốn cái vó rất to. Một cặp mắt nhắm\\nhờ, dử mắt nhếch nhác. Giang Nam vốn không có thứ này, chỉ\\nngẫu nhiên có người từ quan ngoại cưỡi tới, không tránh được người\\nta thấy lạ mà nhìn, hai đứa con của chủ tiệm thì xúm vào vây lấy nó\\t10550-loan-the-anh-hung-tap-1-thuviensach.vn'), Document(page_content='vọt xuống, không dừng lại mà phản công thẳng tới Văn Đình Các,\\nkhông để hắn huýt tiếp. Nàng cắn giữ chỗ tóc rối, đao trong tay\\nnhát nào nhát nấy đưa hiểm, hoàn toàn không khách khí, miệng\\nkêu: “Ngạo Chi, đi mau!” Văn Đình Các vì muốn đổi hơi, mất tiên\\ncơ, bị nàng bức lùi liên tục, nhất thời không sao trả đòn. Thẩm\\nPhóng chẳng chịu đi, quay lại cứu Tam Nương. Văn Đình Các nọ thân\\nthủ phi phàm, Tam Nương rút tay lại thế nào được? Thấy Thẩm\\t10550-loan-the-anh-hung-tap-1-thuviensach.vn'), Document(page_content='lau này, đám Đề kỵ giật mình, hắn quá nửa có thể xông ra được.\\nVàng kia ở trong tay hắn dẫu có thế nào thì ta cũng cảm thấy tốt\\nhơn là trong tay đám rùa đen khốn nạn kia. Ta mới đánh lửa nhưng\\nbởi ngâm trong nước nên ướt hết ráo. Rồi bỗng có một kẻ trong Lục\\nPhi vệ thấp giọng nói: “Hắn đang đợi trời tối”, ta mới chợt hiểu,\\nLạc tiểu ca muốn đợi đêm xuống, kiếm pháp kia của hắn, trong\\nđêm tối chỉ sợ càng khó tránh. Đề kỵ không dám bắn tên, chỉ vì sợ\\t10550-loan-the-anh-hung-tap-1-thuviensach.vn'), Document(page_content='tiêu ngân này bù được tô cống một năm của triều đình. Chẳng\\ntrách, trước có Kim hòa thượng động lòng với nó, sau lại có Đề kỵ\\ncũng động lòng.\\nTần lão gia tử than: “Lẽ nào thiên hạ thật sự không còn vương\\npháp nữa rồi sao?”\\nViên nhị công tử lạnh lùng cười, nói: “Vương pháp? Tần lão gia\\ntử, chuyến tiêu này của ngài nguồn gốc hợp pháp sao?”\\nMọi người ngầm gật đầu, tiền riêng nặng bậc này, không biết\\nphải gom bao nhiêu gia tài của mấy nhà đại phú mới đủ, chỉ e số\\t10550-loan-the-anh-hung-tap-1-thuviensach.vn'), Document(page_content='miên bất tuyệt, bờ mi mai tóc, vấn vít không thôi. Thẩm\\nPhóng ngắm bóng hình Tam Nương đang cưỡi trên chú lừa\\nhoa, giờ mới hiểu bốn chữ “tóc mai sương gió” rốt cuộc có hàm ý gì.\\nCơn mưa lúc bắt đầu chỉ lất phất, chỉ hơi cảm nhận được mà\\nkhông nhìn thấy được, rồi dần dần dầm dề không dứt, lại có\\nđôi chút lạnh lẽo, khiến người ta phiền muộn. May mà ở cùng Tam\\nNương, mưa thu có lúc cũng như mưa xuân vậy.\\nLúc hắn và Tam Nương tiếp tục lên đường, Kinh Tam Nương đã\\t10550-loan-the-anh-hung-tap-1-thuviensach.vn'), Document(page_content='nói có trả tiền thuê nhưng là đợi sau khi đã chơi cho người trong tiêu\\ncục một vố, không tránh khỏi quá đáng. Bọc đồ Tần lão gia tử phát\\ncho đám áp tiêu nặng trịch, hẳn là bạc trắng. Đám thanh niên kia\\ncũng chẳng biết nói gì, tình thâm nghĩa trọng, mắt liền đỏ hồng,\\nai nấy đều quỳ xuống, dập đầu trước Tần Ổn, sau đó đông tây\\nnam bắc mỗi người kiếm một đường mà đi. Chẳng bao lâu, chúng\\nnhân cũng đi sạch, chỉ còn Tần Ổn cùng hán tử mày rậm mắt to,\\t10550-loan-the-anh-hung-tap-1-thuviensach.vn'), Document(page_content='\\x93 Lý do nữa, vì giai đoạn sau này, là màn của \\nkhối trược khảo đảo, nên tầng trược khí bao \\nquanh cõi hồng trần càng ngày càng dày đặc. \\nCác con tu thiền phải cố gắng hơn bội phần theo \\nđà phát triển của trược khí thì mới mong hóa \\ngiải bớt ảnh hưởng của khối trược điển đang tác \\nhttps://thuviensach.vn\\n \\n \\n \\n \\nKim Thân Cha \\nE  93  F \\n \\n \\n \\n \\nloạn ở đấy. Nếu các con cứ tiếp tục công phu \\ntheo đà từ trước đến nay thì chắc chắn phải thấy \\nhiệu quả sút kém. Cho nên, Cha đã khuyên các \\ncon phải rán siêng hành Pháp Luân cho nhiều \\ntrong ngày, vào bất cứ lúc nào con có điều kiện. \\nNgoài ra, con rán hành những gì cần thiết cho \\n“cơ cấp cứu” để hóa giải bớt trược khí mà con \\nnào cũng phải bị ô nhiễm không ít thì nhiều. \\nĐấy là trường chay, mật niệm danh Cha hay các \\nvị Phật, và siêng năng tinh tấn công phu. Những \\nđiều trên, Cha đã phổ biến cho các con biết rồi. \\nTrở lại vấn đề con hỏi. Cha tóm tắt rằng: sở dĩ, \\nđứa kia vẫn công phu mỗi tối mà bị thoái bộ là \\nvì:  \\n\\x93 Không hành công phu tốt, nên không bồi bổ\\t235-thuong-de-giang-chan-ly-thuviensach.vn'), Document(page_content='\\x93 Lý do nữa, vì giai đoạn sau này, là màn của \\nkhối trược khảo đảo, nên tầng trược khí bao \\nquanh cõi hồng trần càng ngày càng dày đặc. \\nCác con tu thiền phải cố gắng hơn bội phần theo \\nđà phát triển của trược khí thì mới mong hóa \\ngiải bớt ảnh hưởng của khối trược điển đang tác \\nhttps://thuviensach.vn\\n \\n \\n \\n \\nKim Thân Cha \\nE  93  F \\n \\n \\n \\n \\nloạn ở đấy. Nếu các con cứ tiếp tục công phu \\ntheo đà từ trước đến nay thì chắc chắn phải thấy \\nhiệu quả sút kém. Cho nên, Cha đã khuyên các \\ncon phải rán siêng hành Pháp Luân cho nhiều \\ntrong ngày, vào bất cứ lúc nào con có điều kiện. \\nNgoài ra, con rán hành những gì cần thiết cho \\n“cơ cấp cứu” để hóa giải bớt trược khí mà con \\nnào cũng phải bị ô nhiễm không ít thì nhiều. \\nĐấy là trường chay, mật niệm danh Cha hay các \\nvị Phật, và siêng năng tinh tấn công phu. Những \\nđiều trên, Cha đã phổ biến cho các con biết rồi. \\nTrở lại vấn đề con hỏi. Cha tóm tắt rằng: sở dĩ, \\nđứa kia vẫn công phu mỗi tối mà bị thoái bộ là \\nvì:  \\n\\x93 Không hành công phu tốt, nên không bồi bổ\\t235-thuong-de-giang-chan-ly-thuviensach.vn'), Document(page_content='người họ đều quay đầu, không để ý tới nhau nữa. Qua một lúc, Tam\\nNương mới nhẹ “hic” một tiếng, cười nói: “Lão lộ công phu đó là để\\ncho thiếp xem, rốt cuộc đúng là lão gia tửng hồ, vừa vào cửa đã\\nnhìn chăm chăm thiếp rồi, lẽ nào trên mặt thiếp có viết chữ\\n“trộm” sao?”\\nThẩm Phóng không kìm được cũng cười, nghĩ Tam Nương khí\\nchất bất tục, có là người bình thường cũng sẽ chú ý tới nàng, nhưng\\nThẩm Phóng tính tình trầm ổn, tuy cùng Tam Nương vợ chồng hòa\\t10550-loan-the-anh-hung-tap-1-thuviensach.vn'), Document(page_content='hắn xông vào đám đông thì lại thành ra hỏng việc. Lạc tiểu ca bỗng\\nngẩng đầu nhìn bóng chiều, thái dương chiếu trên mặt hắn,\\nthật... thật...”, hắn ngôn từ vụng về, không biết nói thế nào.\\n“Ta nghe hắn đột nhiên nói: “Các ngươi nhường đường đi, để ta\\nđem vàng tặng cho Hoàn Nhan Lượng, mấy ngày qua nghĩ lại rồi,\\nnói không chừng đổi được công chúa nước Kim về, tặng cho Tần\\nThừa tướng của các người, xem như có đi có lại, thế nào?” Ta mới\\t10550-loan-the-anh-hung-tap-1-thuviensach.vn'), Document(page_content='cũng không ngờ nàng phận nữ lưu mà lại xuất thủ độc địa tới vậy,\\nmiệng kêu “í” một tiếng, một chiêu toàn lực đang đánh về Vương\\nMộc liền chậm lại đôi chút, Kim hòa thượng thấy có chỗ hở liền\\nđược thể phang tới một trượng, kẻ kia một tay gạt thiền trượng của\\nKim hòa thượng, chân trái đá bay hán tử của tiêu cục đang nhảy bổ\\ntới, tay kia vỗ lên mái chèo Vương Mộc đang điều khiển, mái chèo\\nkia làm bằng gỗ hoàng mộc lâu năm ngâm dầu tùng, cứng chắc dị\\nhttps://thuviensach.vn\\t10550-loan-the-anh-hung-tap-1-thuviensach.vn'), Document(page_content='được món tiền be bé này, lại phải đưa năm, sáu vạn cho em trai Hàn\\nCơ. Chuyện này vốn cực kỳ ổn thỏa, tướng gia vui vẻ, Hàn Cơ vui vẻ,\\nmuôn dân trong thiên hạ cũng vui vẻ, Tần tướng gia chấp pháp\\ncông bằng, khiến Lâm chuyển vận sứ kia hạ cánh tay không, cướp\\ngiàu chia nghèo, lẽ đáng phải thế.” Tam Nương Tử nghe mà cười tủm\\ntỉm, nghĩ Viên nhị công tử này ngoài thì ngoan ngoãn phụng sự bề\\ntrên, trong thì trào phúng xuống dưới, mở miệng đúng là cực kỳ cay\\t10550-loan-the-anh-hung-tap-1-thuviensach.vn'), Document(page_content='sự, chỉ giỏi bài bạc, chè chén của lão cũng được ăn ké ơn huệ mà tên\\nđược liệt vào “Đề kỵ Tam thập nhị vệ”, có thể xem là kẻ bất tài\\nnhất trong Tam thập nhị vệ. Phùng Tiểu Phì Tử này nổi danh là có\\nba nhiều ba ít: Lâu la nhiều, cha nuôi nhiều, mẹ hờ nhiều, lông\\nmày ít, râu ria ít, gia giáo ít. Nhà cũ của hắn ở huyện Dư Hàng, đất\\nrộng nghìn khoảnh, lầu cao điện gác lắm, vốn là bá chủ ở địa\\nphương, là một ông vua con nổi tiếng “con rùa hủi đầu vòi hỏng(11)”\\t10550-loan-the-anh-hung-tap-1-thuviensach.vn'), Document(page_content='của hai vị đó được? Không bị thu thì cũng bị đốt rồi.”\\nSắc mặt Thẩm Phóng lại trở nên âm trầm. Lần này, hắn và\\nTam Nương tha hương tránh nạn, cũng là vì nghe phong thanh\\nHoàng thượng với Thừa tướng trên triều cực kỳ bất mãn với bài từ\\nđề ở Trường Kiều, Ngô Giang, đang ngấm ngầm chiếu hỏi. Bài\\ntừ ấy tuy chẳng phải hắn viết nhưng Thẩm Phóng tự biết chỉ e\\nbản thân khó mà được hôn quân, gian thần dung tha. Cái ấy gọi là\\nba người bảo trên chợ có hổ, có trăm cái miệng cũng chẳng cãi được,\\t10550-loan-the-anh-hung-tap-1-thuviensach.vn'), Document(page_content='đấu kia, cho nên tiểu cô nương nọ chính là người đầu tiên phát hiện\\nra Lạc Hàn đã tới. Không biết tại sao hắn vừa tới, trong lòng cô bé\\nliền buông tiếng thở phào, bất tri bất giác, một kiếm “Rượu rót\\nsen vàng, nhà xa vạn dặm” nọ của hắn đã đời đời kiếp kiếp in\\ndấu trong tim nàng, chẳng quản người khác nói thế nào, địch nhân\\nmạnh mẽ đến đâu, cô bé đều tin chỉ cần có hắn, tất thảy đều\\nđược giải quyết, bởi hắn là anh hùng của nàng!\\t10550-loan-the-anh-hung-tap-1-thuviensach.vn'), Document(page_content='kẻ sĩ lỗi lạc bậc ấy, thiếp sao dám trách chàng được? Chàng cũng\\nquá coi thường thiếp rồi. Nếu không phải chàng tranh nói trước,\\nkhông chừng thiếp cũng muốn tới kết giao với hắn một phen\\nđấy!”\\nThẩm Phóng nghe thế liền khẽ nắm lấy tay Tam Nương.\\nNgoài thành nước biếc non xanh, dọc đường đi qua bao ruộng tốt,\\nmạ trổ xanh mơn mởn, sau cơn mưa càng như được gột tẩy, Tam\\nNương thấy Thẩm Phóng cao hứng, trong lòng cũng vui vẻ, cảnh do\\t10550-loan-the-anh-hung-tap-1-thuviensach.vn'), Document(page_content='trách đám ngốc nghếch Ngô Kỳ thất thủ, đụng tới quả nhiên đứt\\ntay.”\\nKẻ trên thuyền chỉ “hừ” lạnh một tiếng, đôi mắt âm trầm nhìn\\nchúng nhân chằm chằm, rồi đột nhiên tung người, mọi người có\\ncảm giác mắt hoa mày chóng, chỉ thấy áo choàng của gã rung lên,\\nchụp xuống ba anh em họ Trương, muốn quẳng thẳng lên bờ. Hắn\\nvốn nhìn chuẩn trong đám người ba người họ công phu yếu mới ra\\ntay. Chẳng dè hán tử tiêu cực phản ứng cực nhanh, nhảy phốc lên,\\t10550-loan-the-anh-hung-tap-1-thuviensach.vn'), Document(page_content='cực chuẩn, khoảng cách lại gần, trúng luôn vào mắt một gã, hắn\\nrên một tiếng, kêu thảm đổ gục xuống đất, hai tay mò lên, nhưng\\nđôi khuyên đã cắm sâu vào óc, hắn chỉ co giật vài cái liền chết\\nthẳng cẳng, cùng lúc ấy, ống tay áo phải của Tam Nương khua một\\nhttps://thuviensach.vn\\nđường, trong ống tay áo không rõ có thứ gì đó sắc nhọn thò ra, một\\ntay tráng hán chỉ thấy chỗ cổ họng phun ra toàn máu tươi rồi ngã\\nngửa, gã béo cuối cùng vừa định tiến lên, cái vòng của Tam Nương\\t10550-loan-the-anh-hung-tap-1-thuviensach.vn'), Document(page_content='Tam Nương cũng bật cười. Hai người đều biết việc này hung\\nhiểm, nhưng chỉ cảm thấy có tri âm bầu bạn, chết thì có sao? Ngày\\ntháng sau này, chỉ cầu thoải mái một đời thống khoái, thống\\nkhoái, thống khổ ngày khác vị tất không phải khoái lạc hôm nay.\\nĐứa bé kia cực kỳ yếu ớt, sớm đã hôn mê rồi, Tam Nương Tử\\nlấy rượu hơ dưới mũi nó một lúc, lại nhấn huyệt Nhân Trung, lát\\nsau đứa bé mới tỉnh lại. Vừa thấy trước mặt chỉ có Thẩm Phóng với\\t10550-loan-the-anh-hung-tap-1-thuviensach.vn'), Document(page_content='cơm xong thì theo về... Hại ông đây mưa to thế này mà cũng bị lão\\ngia tử phái ra ngoài chạy đôn chạy đáo, rồi đây xem xử lý bọn bay\\nthế nào!”\\nCô bé kia cầm tay ông nội, nước mắt sớm đã rơm rớm, lúc này\\nkinh sợ không nhịn nổi nữa, cuối cùng “oa” một tiếng bật khóc.\\nBánh bao nhân thịt trâu trong tay không nuốt được miếng nào,\\nkhuôn mặt bé nhỏ bị dọa cho tái nhợt, mắt đỏ quạnh, vô cùng đáng\\nthương.\\nMọi người đều không biết là chuyện gì, cũng không tiện mở\\t10550-loan-the-anh-hung-tap-1-thuviensach.vn')]\n"
+     ]
+    }
+   ],
+   "source": [
+    "#db = Chroma(persist_directory=\"/home/skmlab1/data/data/QuangMinh/Learning/Clone/RAGBOOK/note/db/chroma_db_bge\", embedding_function=embedding_function)\n",
+    "db = Chroma(persist_directory=\"/home/skmlab1/data/data/QuangMinh/Learning/Clone/RAGBOOK/note/db/chroma_db_ver1\", embedding_function=embedding_function)\n",
+    "docs = db.similarity_search(query, k=20) # 25, 20\n",
+    "#print(docs[0].page_content)\n",
+    "print(docs)\n",
+    "#print(docs[0])"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 34,
+   "id": "dba3c7a5-e964-4804-883b-ea641b0acd44",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "10550-loan-the-anh-hung-tap-1-thuviensach.vn\n",
+      "10550-loan-the-anh-hung-tap-1-thuviensach.vn\n",
+      "10550-loan-the-anh-hung-tap-1-thuviensach.vn\n",
+      "10550-loan-the-anh-hung-tap-1-thuviensach.vn\n",
+      "10550-loan-the-anh-hung-tap-1-thuviensach.vn\n",
+      "10550-loan-the-anh-hung-tap-1-thuviensach.vn\n",
+      "235-thuong-de-giang-chan-ly-thuviensach.vn\n",
+      "235-thuong-de-giang-chan-ly-thuviensach.vn\n",
+      "10550-loan-the-anh-hung-tap-1-thuviensach.vn\n",
+      "10550-loan-the-anh-hung-tap-1-thuviensach.vn\n",
+      "10550-loan-the-anh-hung-tap-1-thuviensach.vn\n",
+      "10550-loan-the-anh-hung-tap-1-thuviensach.vn\n",
+      "10550-loan-the-anh-hung-tap-1-thuviensach.vn\n",
+      "10550-loan-the-anh-hung-tap-1-thuviensach.vn\n",
+      "10550-loan-the-anh-hung-tap-1-thuviensach.vn\n",
+      "10550-loan-the-anh-hung-tap-1-thuviensach.vn\n",
+      "10550-loan-the-anh-hung-tap-1-thuviensach.vn\n",
+      "10550-loan-the-anh-hung-tap-1-thuviensach.vn\n",
+      "10550-loan-the-anh-hung-tap-1-thuviensach.vn\n",
+      "10550-loan-the-anh-hung-tap-1-thuviensach.vn\n"
+     ]
+    }
+   ],
+   "source": [
+    "titles = []\n",
+    "for i in range(len(docs)):\n",
+    "    page_content = docs[i].page_content\n",
+    "    #print(page_content)\n",
+    "    title = page_content.split(\"\\t\")[1]\n",
+    "    titles.append(title)\n",
+    "    print(title)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 35,
+   "id": "e4f28943-917f-45e2-bf87-1a5a5e98ea33",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "20"
+      ]
+     },
+     "execution_count": 35,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "len(titles)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 36,
+   "id": "99489f4b-644c-42bd-b86a-0702e2505a3c",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "{'10550-loan-the-anh-hung-tap-1-thuviensach.vn': 18,\n",
+       " '235-thuong-de-giang-chan-ly-thuviensach.vn': 2}"
+      ]
+     },
+     "execution_count": 36,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "title_dict = dict(Counter(titles))\n",
+    "title_dict"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 37,
+   "id": "5fc6e81c-12ef-4c9b-aa7f-af7ba10701f9",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "'10550-loan-the-anh-hung-tap-1-thuviensach.vn'"
+      ]
+     },
+     "execution_count": 37,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "ref_top1 = max(title_dict, key=title_dict.get)\n",
+    "ref_top1"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "aefebef2-002a-43da-8a5f-32cd29243a4d",
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "00a937f7-bc61-443d-9d80-c4473c2bfc78",
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "cd9a4ab0-9681-43f7-a81b-d6d27866bd8e",
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "59127bc2-26d8-47f5-bab3-59ecc206a504",
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "ac1c0407-3a05-4fab-8923-cb7fbbb9e878",
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python [conda env:quangminh]",
+   "language": "python",
+   "name": "conda-env-quangminh-py"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.11.4"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}

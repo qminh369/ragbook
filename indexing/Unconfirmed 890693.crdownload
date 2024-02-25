@@ -1,0 +1,542 @@
+{
+ "cells": [
+  {
+   "cell_type": "code",
+   "execution_count": 1,
+   "id": "fb2744be-799a-4c13-b9a3-57ed9e72e3bf",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import fitz  # PyMuPDF\n",
+    "import re\n",
+    "import pandas as pd\n",
+    "from langchain.text_splitter import CharacterTextSplitter, RecursiveCharacterTextSplitter\n",
+    "from langchain_community.document_loaders import PyPDFLoader\n",
+    "from langchain_community.vectorstores import Chroma\n",
+    "from langchain_community.embeddings.sentence_transformer import (\n",
+    "    SentenceTransformerEmbeddings,\n",
+    ")\n",
+    "import os"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 2,
+   "id": "967248d5-5e3b-46dc-bcb8-de310acf7032",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "def read_pdf(file_path):\n",
+    "    text = \"\"\n",
+    "    with fitz.open(file_path) as pdf_document:\n",
+    "        for page_number in range(pdf_document.page_count):\n",
+    "            page = pdf_document[page_number]\n",
+    "            text += page.get_text()\n",
+    "\n",
+    "    return text "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 3,
+   "id": "4814dde5-bdaf-4a4d-9db8-0a949996dc63",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "['/home/skmlab1/data/data/QuangMinh/Learning/Clone/RAGBOOK/note/train_book/10550-loan-the-anh-hung-tap-1-thuviensach.vn.pdf',\n",
+       " '/home/skmlab1/data/data/QuangMinh/Learning/Clone/RAGBOOK/note/train_book/11441-nhung-chang-trai-huyen-thoai-tap-1-thuviensach.vn.pdf',\n",
+       " '/home/skmlab1/data/data/QuangMinh/Learning/Clone/RAGBOOK/note/train_book/12844-bi-mat-cua-nhung-bi-mat-tap-1-bai-noi-ve-bi-mat-cua-hoa-vang-thuviensach.vn.pdf',\n",
+       " '/home/skmlab1/data/data/QuangMinh/Learning/Clone/RAGBOOK/note/train_book/13270-vong-tron-da-thieng-tap-1-thuviensach.vn.pdf',\n",
+       " '/home/skmlab1/data/data/QuangMinh/Learning/Clone/RAGBOOK/note/train_book/13354-world-of-warcraft-chronicle-quyen-1-thuviensach.vn.pdf',\n",
+       " '/home/skmlab1/data/data/QuangMinh/Learning/Clone/RAGBOOK/note/train_book/13374-xin-em-dung-dan-chut-tap-1-thuviensach.vn.pdf',\n",
+       " '/home/skmlab1/data/data/QuangMinh/Learning/Clone/RAGBOOK/note/train_book/235-thuong-de-giang-chan-ly-thuviensach.vn.pdf',\n",
+       " '/home/skmlab1/data/data/QuangMinh/Learning/Clone/RAGBOOK/note/train_book/5006-nep-cu-tin-nguong-viet-nam-quyen-ha-thuviensach.vn.pdf',\n",
+       " '/home/skmlab1/data/data/QuangMinh/Learning/Clone/RAGBOOK/note/train_book/5077-nghin-xua-van-hien-tap-1-thuviensach.vn.pdf',\n",
+       " '/home/skmlab1/data/data/QuangMinh/Learning/Clone/RAGBOOK/note/train_book/8518-hon-tuyet-lan-cuoc-doi-va-su-nghiep-cua-warren-buffett-tap-1-thuviensach.vn.pdf']"
+      ]
+     },
+     "execution_count": 3,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "folder_path = \"/home/skmlab1/data/data/QuangMinh/Learning/Clone/RAGBOOK/note/train_book\"\n",
+    "file_names = []\n",
+    "for filename in os.listdir(folder_path):\n",
+    "    file_path = os.path.join(folder_path, filename)\n",
+    "    if os.path.isfile(file_path):\n",
+    "        file_names.append(file_path)\n",
+    "file_names"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 4,
+   "id": "bd766d56-5c0f-4eed-9e38-70715bccb04a",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "10"
+      ]
+     },
+     "execution_count": 4,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "len(file_names)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "77be64cd-3053-4275-b987-d742b98685c4",
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 5,
+   "id": "a9ef6523-7e59-48df-8051-f822474c665a",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "'\\nfull_text = \"\"\\nfor file_path in file_names:\\n    full_text += read_pdf(file_path) + \"\\n\"\\n    \\nwith open(\"/home/skmlab1/data/data/QuangMinh/Learning/Clone/RAGBOOK/note/text/full_text.txt\", \\'w\\') as file:\\n    file.write(full_text)\\n'"
+      ]
+     },
+     "execution_count": 5,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "'''\n",
+    "full_text = \"\"\n",
+    "for file_path in file_names:\n",
+    "    full_text += read_pdf(file_path) + \"\\n\"\n",
+    "    \n",
+    "with open(\"/home/skmlab1/data/data/QuangMinh/Learning/Clone/RAGBOOK/note/text/full_text.txt\", 'w') as file:\n",
+    "    file.write(full_text)\n",
+    "'''"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 6,
+   "id": "c3890c9d-b718-407a-afa5-1a2a2ccd002a",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "title_names = []\n",
+    "for filename in os.listdir(folder_path):\n",
+    "    title_names.append(filename.rstrip(\".pdf\"))"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 7,
+   "id": "03b1e27b-7690-4092-ac77-4908e41da52b",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "['.ipynb_checkpoints',\n",
+       " '10550-loan-the-anh-hung-tap-1-thuviensach.vn',\n",
+       " '11441-nhung-chang-trai-huyen-thoai-tap-1-thuviensach.vn',\n",
+       " '12844-bi-mat-cua-nhung-bi-mat-tap-1-bai-noi-ve-bi-mat-cua-hoa-vang-thuviensach.vn',\n",
+       " '13270-vong-tron-da-thieng-tap-1-thuviensach.vn',\n",
+       " '13354-world-of-warcraft-chronicle-quyen-1-thuviensach.vn',\n",
+       " '13374-xin-em-dung-dan-chut-tap-1-thuviensach.vn',\n",
+       " '235-thuong-de-giang-chan-ly-thuviensach.vn',\n",
+       " '5006-nep-cu-tin-nguong-viet-nam-quyen-ha-thuviensach.vn',\n",
+       " '5077-nghin-xua-van-hien-tap-1-thuviensach.vn',\n",
+       " '8518-hon-tuyet-lan-cuoc-doi-va-su-nghiep-cua-warren-buffett-tap-1-thuviensach.vn']"
+      ]
+     },
+     "execution_count": 7,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "title_names"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 8,
+   "id": "0a904d8f-70d4-4a4b-94be-6ba9164d4cd1",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "'\\npath = \"/home/skmlab1/data/data/QuangMinh/Learning/Clone/RAGBOOK/note/text/\"\\nfor i in range(len(title_names)):\\n    full_text = read_pdf(file_names[i])\\n    with open(path + title_names[i] + \".txt\", \\'w\\') as file:\\n        file.write(full_text)\\n'"
+      ]
+     },
+     "execution_count": 8,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "'''\n",
+    "path = \"/home/skmlab1/data/data/QuangMinh/Learning/Clone/RAGBOOK/note/text/\"\n",
+    "for i in range(len(title_names)):\n",
+    "    full_text = read_pdf(file_names[i])\n",
+    "    with open(path + title_names[i] + \".txt\", 'w') as file:\n",
+    "        file.write(full_text)\n",
+    "'''"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 9,
+   "id": "df5b7c8b-f796-4f5f-9319-2f0668cb533c",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "11"
+      ]
+     },
+     "execution_count": 9,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "len(title_names)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 10,
+   "id": "e55cc120-fc8a-44cd-a044-f3fd95d729c1",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "title_names = title_names[1:]"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 11,
+   "id": "b607fc20-b6c8-4742-869b-8b9d9ad762db",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "10"
+      ]
+     },
+     "execution_count": 11,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "len(title_names)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 12,
+   "id": "f4a802d8-4f9d-4182-8be6-a292c478c8ab",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "#path = \"/home/skmlab1/data/data/QuangMinh/Learning/Clone/RAGBOOK/note/text/\"\n",
+    "doc_text = []\n",
+    "for i in range(len(title_names)):\n",
+    "    full_text = read_pdf(file_names[i])\n",
+    "    doc_text.append(full_text)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 13,
+   "id": "183da8e9-127f-4bb1-86ae-14778f0175a0",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "10"
+      ]
+     },
+     "execution_count": 13,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "len(doc_text)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 14,
+   "id": "016d14ef-01f0-40d2-b17a-c4e598893c4e",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "'\\ntext_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)\\ndocs = text_splitter.split_text(doc_text)\\n'"
+      ]
+     },
+     "execution_count": 14,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "'''\n",
+    "text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)\n",
+    "docs = text_splitter.split_text(doc_text)\n",
+    "'''"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 15,
+   "id": "0a9031b9-6910-41ee-ac29-31b62f4f2e3d",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "#text_splitter = RecursiveCharacterTextSplitter(chunk_size=512, chunk_overlap=0)\n",
+    "text_splitter = RecursiveCharacterTextSplitter(chunk_size=1024, chunk_overlap=0)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 16,
+   "id": "1ed2219e-144a-4785-b8d7-01f665d18283",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "titles = []\n",
+    "texts = []\n",
+    "for i in range(len(doc_text)):\n",
+    "    chunk = text_splitter.split_text(doc_text[i])\n",
+    "    num = len(chunk)\n",
+    "    #print(num)\n",
+    "    for k in range(num):\n",
+    "        titles.append(title_names[i])\n",
+    "        texts.append(chunk[k] + \"\\t\" + title_names[i])"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 17,
+   "id": "a3743e25-e0f3-43c4-a43d-161645fbaf1a",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "6637"
+      ]
+     },
+     "execution_count": 17,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "len(texts)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 18,
+   "id": "c9529240-4aec-4b55-b034-3d96ebfaccc1",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "'\\ndocuments = []\\nfor i in range(len(file_names)):\\n    loader = PyPDFLoader(file_names[i])\\n    documents.extend(loader.load())\\n'"
+      ]
+     },
+     "execution_count": 18,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "'''\n",
+    "documents = []\n",
+    "for i in range(len(file_names)):\n",
+    "    loader = PyPDFLoader(file_names[i])\n",
+    "    documents.extend(loader.load())\n",
+    "'''"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 19,
+   "id": "fe68ffe2-9f24-461e-9007-75ac3b37ea72",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "'\\nwith open(\\'/home/skmlab1/data/data/QuangMinh/Learning/Clone/RAGBOOK/note/text/chunk.txt\\', \\'w\\') as file:\\n    for i in range(len(texts)):\\n        file.write(texts[i] + \"<endofchunk>\")\\n'"
+      ]
+     },
+     "execution_count": 19,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "'''\n",
+    "with open('/home/skmlab1/data/data/QuangMinh/Learning/Clone/RAGBOOK/note/text/chunk.txt', 'w') as file:\n",
+    "    for i in range(len(texts)):\n",
+    "        file.write(texts[i] + \"<endofchunk>\")\n",
+    "'''"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "b2c5609a-9939-48f8-a0ef-a2b0806bf621",
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 20,
+   "id": "4c410115-ab94-48e0-9cc3-973036942a0f",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# all-mpnet-base-v2\n",
+    "# vietnamese-sbert\n",
+    "# BAAI/bge-m3\n",
+    "embedding_function = SentenceTransformerEmbeddings(model_name=\"all-MiniLM-L6-v2\")\n",
+    "#embedding_function = SentenceTransformerEmbeddings(model_name=\"BAAI/bge-m3\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 21,
+   "id": "6e2dd58e-4bbd-4e79-80ac-9c76f1f2874c",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "HuggingFaceEmbeddings(client=SentenceTransformer(\n",
+       "  (0): Transformer({'max_seq_length': 256, 'do_lower_case': False}) with Transformer model: BertModel \n",
+       "  (1): Pooling({'word_embedding_dimension': 384, 'pooling_mode_cls_token': False, 'pooling_mode_mean_tokens': True, 'pooling_mode_max_tokens': False, 'pooling_mode_mean_sqrt_len_tokens': False, 'pooling_mode_weightedmean_tokens': False, 'pooling_mode_lasttoken': False})\n",
+       "  (2): Normalize()\n",
+       "), model_name='all-MiniLM-L6-v2', cache_folder=None, model_kwargs={}, encode_kwargs={}, multi_process=False, show_progress=False)"
+      ]
+     },
+     "execution_count": 21,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "embedding_function"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 22,
+   "id": "fa002d06-12b9-4291-91ec-42917f497d64",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# load it into Chroma\n",
+    "#db = Chroma.from_documents(documents, embedding_function, persist_directory=\"/home/skmlab1/data/data/QuangMinh/Learning/Clone/RAGBOOK/note/chroma_db\")\n",
+    "#db = Chroma.from_texts(texts, embedding_function, persist_directory=\"/home/skmlab1/data/data/QuangMinh/Learning/Clone/RAGBOOK/note/chroma_db\")\n",
+    "db = Chroma.from_texts(texts, embedding_function, persist_directory=\"/home/skmlab1/data/data/QuangMinh/Learning/Clone/RAGBOOK/note/db/chroma_db_ver1\")\n",
+    "#db = Chroma.from_texts(texts, embedding_function, persist_directory=\"/home/skmlab1/data/data/QuangMinh/Learning/Clone/RAGBOOK/note/db/chroma_db_bge\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 23,
+   "id": "e6da1329-3b06-446c-ad1d-ca5c4cc79bfb",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "<langchain_community.vectorstores.chroma.Chroma at 0x7ff84ff75690>"
+      ]
+     },
+     "execution_count": 23,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "db"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "4db89b18-5395-472d-940a-f34fa205ebb5",
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "7a57d42e-319c-4cdf-8f5f-94779802f437",
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "57e530dc-175e-4067-9e36-09557c1f0648",
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python [conda env:quangminh]",
+   "language": "python",
+   "name": "conda-env-quangminh-py"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.11.4"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}
